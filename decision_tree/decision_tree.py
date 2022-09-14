@@ -1,56 +1,59 @@
-import numpy as np 
-import pandas as pd 
+import numpy as np
+import pandas as pd
 # IMPORTANT: DO NOT USE ANY OTHER 3RD PARTY PACKAGES
 # (math, random, collections, functools, etc. are perfectly fine)
 
 
 class DecisionTree:
-    
+
     def __init__(self):
-        # NOTE: Feel free add any hyperparameters 
-        # (with defaults) as you see fit
-        pass
-    
-    def fit(self, X, y):
+        self.rules = []
+        self.attributes = []
+
+    def fit(self, X: pd.DataFrame, y: pd.DataFrame):
         """
         Generates a decision tree for classification
-        
+
         Args:
             X (pd.DataFrame): a matrix with discrete value where
                 each row is a sample and the columns correspond
                 to the features.
             y (pd.Series): a vector of discrete ground-truth labels
         """
-        # TODO: Implement 
-        raise NotImplementedError()
-    
+        # TODO: Implement
+        self.attributes = X.columns
+        x_entropy = entropy([y.count(elem) for elem in set(y)])
+        if x_entropy == 0:
+            return
+        gain = dict()
+
     def predict(self, X):
         """
         Generates predictions
-        
+
         Note: should be called after .fit()
-        
+
         Args:
             X (pd.DataFrame): an mxn discrete matrix where
                 each row is a sample and the columns correspond
                 to the features.
-            
+
         Returns:
             A length m vector with predictions
         """
-        # TODO: Implement 
+        # TODO: Implement
         raise NotImplementedError()
-    
+
     def get_rules(self):
         """
         Returns the decision tree as a list of rules
-        
+
         Each rule is given as an implication "x => y" where
         the antecedent is given by a conjuction of attribute
         values and the consequent is the predicted label
-        
+
             attr1=val1 ^ attr2=val2 ^ ... => label
-        
+
         Example output:
         >>> model.get_rules()
         [
@@ -62,17 +65,21 @@ class DecisionTree:
         # TODO: Implement
         raise NotImplementedError()
 
+    def _gain(attribute, attributes, ent, X: pd.DataFrame, y: pd.DataFrame):
+        return ent - [(X[attribute].count(att_type) / len(X)) *
+                      entropy([y[X.query(f"{attribute} = '{att_type}'")].count(elem) for elem in set(y[X.query(f"{attribute} = '{att_type}'")])]) for att_type in attributes].sum()
 
-# --- Some utility functions 
-    
+
+# --- Some utility functions
+
 def accuracy(y_true, y_pred):
     """
     Computes discrete classification accuracy
-    
+
     Args:
         y_true (array<m>): a length m vector of ground truth labels
         y_pred (array<m>): a length m vector of predicted labels
-        
+
     Returns:
         The average number of correct predictions
     """
@@ -83,7 +90,7 @@ def accuracy(y_true, y_pred):
 def entropy(counts):
     """
     Computes the entropy of a partitioning
-    
+
     Args:
         counts (array<k>): a lenth k int array >= 0. For instance,
             an array [3, 4, 1] implies that you have a total of 8
@@ -91,16 +98,13 @@ def entropy(counts):
             and 1 one in the last. This will result in entropy > 0.
             In contrast, a perfect partitioning like [8, 0, 0] will
             result in a (minimal) entropy of 0.0
-            
+
     Returns:
         A positive float scalar corresponding to the (log2) entropy
         of the partitioning.
-    
+
     """
     assert (counts >= 0).all()
     probs = counts / counts.sum()
     probs = probs[probs > 0]  # Avoid log(0)
     return - np.sum(probs * np.log2(probs))
-
-
-
