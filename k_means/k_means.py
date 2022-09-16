@@ -1,17 +1,22 @@
+from cmath import inf
 import numpy as np 
 import pandas as pd 
+import math
 # IMPORTANT: DO NOT USE ANY OTHER 3RD PARTY PACKAGES
 # (math, random, collections, functools, etc. are perfectly fine)
 
 
 class KMeans:
     
-    def __init__(self):
-        # NOTE: Feel free add any hyperparameters 
-        # (with defaults) as you see fit
-        pass
+    def __init__(self, k: int = 2, accuracy = 0.1):
+        self.dist = float('inf')
+        self.prev_dist = float('inf')
+        self.k = k
+        self.k_points: pd.DataFrame
+        self.accuracy = accuracy
+        self.iterations = 0
         
-    def fit(self, X):
+    def fit(self, X: pd.DataFrame) -> None:
         """
         Estimates parameters for the classifier
         
@@ -19,10 +24,38 @@ class KMeans:
             X (array<m,n>): a matrix of floats with
                 m rows (#samples) and n columns (#features)
         """
-        # TODO: Implement
-        raise NotImplementedError()
+        self.k_points = X.sample(n= self.k)
+        
+        convergance = float('inf')
+        
+        
+        #Setting group
+        
+        while convergance > self.accuracy:
+            self.iterations += 1
+            points_belong = []
+            dist_arr = [0 for n in range(self.k)]
+            for index, point in X.iterrows():
+                distances = [math.dist(point.values, k_n.values)**2 for ind, k_n in self.k_points.iterrows()]
+                points_belong.append(np.argmin(distances))
+                dist_arr[points_belong[-1]] += min(distances)
+
+        
+            #Calculating distances
+            self.prev_dist = self.dist 
+            self.dist = sum(distances)
+            convergance = abs(self.prev_dist - self.dist)
+                
+            #Calculating new mean
+            for i in range(self.k):
+                points_belong_series = pd.Series(points_belong)
+                self.k_points.iloc[i] = X.filter(items=points_belong_series[points_belong_series == i].index, axis=0).mean(axis=0)
+                
+            
+
+
     
-    def predict(self, X):
+    def predict(self, X: pd.DataFrame):
         """
         Generates predictions
         
@@ -38,8 +71,13 @@ class KMeans:
             there are 3 clusters, then a possible assignment
             could be: array([2, 0, 0, 1, 2, 1, 1, 0, 2, 2])
         """
-        # TODO: Implement 
-        raise NotImplementedError()
+        output_arr = []
+        print(self.iterations)
+        for index, point in X.iterrows():
+            distances = [math.dist(point.values, k_n.values) for ind, k_n in self.k_points.iterrows()]
+            output_arr.append(np.argmin(distances))
+        return np.array(output_arr)
+
     
     def get_centroids(self):
         """
@@ -56,8 +94,8 @@ class KMeans:
             [xm_1, xm_2, ..., xm_n]
         ])
         """
-        # TODO: Implement 
-        raise NotImplementedError()
+        return self.k_points.to_numpy() 
+
     
     
     

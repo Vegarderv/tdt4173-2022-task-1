@@ -1,13 +1,60 @@
+from logging import root
 import numpy as np
 import pandas as pd
+from copy import  deepcopy
 # IMPORTANT: DO NOT USE ANY OTHER 3RD PARTY PACKAGES
 # (math, random, collections, functools, etc. are perfectly fine)
+
+class Node:
+    def __init__(self, root: str) -> None:
+        self.root= root
+        self.nodes = dict()
+        self.end = False
+        self.answer = ""
+        self.rules = []
+        self.current_rule = []
+    
+    def add_child(self, child, option):
+        self.nodes[option] = child
+    
+    def add_answer(self, answer):
+        self.end = True
+        self.answer = answer
+    
+    def get_child(self, child):
+        return self.nodes[child]
+    
+    def get_children(self):
+        return self.nodes.keys()
+    
+    def get_root(self):
+        return self.root
+
+    def has_children(self):
+        return len(self.nodes) != 0
+    
+    def get_rules(self, Node, OG_NODE):
+        if isinstance(Node, str):
+            OG_NODE.current_rule = [OG_NODE.current_rule]
+            OG_NODE.current_rule.append(Node)
+            OG_NODE.rules.append(tuple(deepcopy(OG_NODE.current_rule)))
+            OG_NODE.current_rule.pop()
+            OG_NODE.current_rule = OG_NODE.current_rule[0]
+            return
+        OG_NODE.current_rule.append([Node.root])
+        for child in Node.nodes.keys():
+            OG_NODE.current_rule[-1].append(child)
+            OG_NODE.get_rules(Node.nodes[child], OG_NODE)
+            OG_NODE.current_rule[-1].pop()
+        OG_NODE.current_rule.pop()
+        return
+
 
 
 class DecisionTree:
 
     def __init__(self):
-        self.rules = []
+        self.rules: Node
         self.attributes = []
 
     def fit(self, X: pd.DataFrame, y: pd.DataFrame):
@@ -22,10 +69,30 @@ class DecisionTree:
         """
         # TODO: Implement
         self.attributes = X.columns
-        x_entropy = entropy([y.count(elem) for elem in set(y)])
+        x_entropy = entropy(pd.Series([len(y[y == elem]) for elem in set(y)]))
         if x_entropy == 0:
-            return
-        gain = dict()
+            return y.values[0]
+        gainz = dict()
+        for attribute in self.attributes:
+            gainz[attribute] = self._gain(attribute, set(X[attribute]), x_entropy, X, y)
+        
+        if(len(gainz) == 0): return y.value_counts().idxmax()
+        best_attribute = max(gainz, key=gainz.get)
+        
+        
+        tree_node = Node(best_attribute)
+        tree_node.answer = y.value_counts().idxmax()
+        for attribute_value in set(X[best_attribute]):
+            new_X = X.query(f"`{best_attribute}` == '{attribute_value}'")
+            value = self.fit(X = new_X.drop(columns=[best_attribute]),y= y[new_X.index])
+            if isinstance(value, str): 
+                tree_node.answer = value
+                pass
+            tree_node.add_child(value, attribute_value)
+        self.rules = tree_node
+        return tree_node
+        
+
 
     def predict(self, X):
         """
@@ -41,8 +108,21 @@ class DecisionTree:
         Returns:
             A length m vector with predictions
         """
-        # TODO: Implement
-        raise NotImplementedError()
+        output_vector = []
+        for index, row in X.iterrows():
+            predictor = self.rules
+            while predictor.end != True:
+                if row[predictor.get_root()] not in predictor.get_children(): #If not in training set
+                    predictor = predictor.answer
+                    break
+                predictor = predictor.get_child(row[predictor.get_root()])
+                if isinstance(predictor, str): break
+            output_vector.append(predictor) 
+        output_vector = pd.Series(output_vector)
+        output_vector.index += X.index[0]
+        return output_vector
+            
+
 
     def get_rules(self):
         """
@@ -62,12 +142,30 @@ class DecisionTree:
             ...
         ]
         """
-        # TODO: Implement
-        raise NotImplementedError()
+        self.rules.rules = []
+        self.rules.get_rules(self.rules, self.rules)
+        return self.rules.rules
 
-    def _gain(attribute, attributes, ent, X: pd.DataFrame, y: pd.DataFrame):
-        return ent - [(X[attribute].count(att_type) / len(X)) *
-                      entropy([y[X.query(f"{attribute} = '{att_type}'")].count(elem) for elem in set(y[X.query(f"{attribute} = '{att_type}'")])]) for att_type in attributes].sum()
+        # TODO: Implement
+         
+
+    def _gain(self, attribute, attributes, ent, X: pd.DataFrame, y: pd.DataFrame):
+        """return ent - [(len(X.query(f"{attribute} == '{att_type}'")) /
+                      len(X)) *
+                      entropy([len(y[X.query(f"{attribute} == '{att_type}'").index].str.find(elem))
+                    for elem in set(y[X.query(f"{attribute} == '{att_type}'").index])]) 
+                    for att_type in attributes].sum()"""
+        #Prøvde å gjøre det på en linje, ga opp
+        #Fant ut at det var grunnet dårlig dokumentasjon i entropy-funksjonen >:(
+        #MAN TRENGER MER ENN "ARRAY(<k>)??? Man trenger enten numpy eller pandas >>>>:(((("
+        entrop = 0
+        for att_type in attributes:
+            X_sv = X.query(f"`{attribute}` == '{att_type}'")
+            y_sv = y[X_sv.index]
+            entropy_sv = [len(y_sv[y_sv == elem]) for elem in set(y)]
+            entrop += y_sv.size/y.size * entropy(pd.Series(entropy_sv))
+        return ent - entrop
+            
 
 
 # --- Some utility functions
